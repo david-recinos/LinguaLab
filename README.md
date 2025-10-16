@@ -29,6 +29,16 @@ Follow these steps to get the project up and running:
     DB_PASSWORD=your_password
     ```
 
+3. **Set up authentication scaffolding:**
+    ```bash
+    composer require laravel/breeze --dev
+    php artisan breeze:install
+    npm install
+    npm run build
+    php artisan migrate
+    ```
+   This will add login and registration pages. Access the login page at `http://localhost:8000/login`.
+
 3. **Install PHP dependencies using Composer:**
     ```bash
     composer install
