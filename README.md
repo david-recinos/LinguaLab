@@ -18,24 +18,7 @@ Follow these steps to get the project up and running:
     cd lingualab
     ```
 
-2. **If you do not see an `artisan` file, install the Laravel application skeleton first.**
-
-    **Recommended Fix (Non-Destructive, Keeps Your Work):**
-    1. Move all your custom files and code (such as `.env.example`, `README.md`, custom migrations, models, controllers, and views) to a safe temporary location outside the project directory.
-    2. Delete everything inside your project directory so it is empty:
-        ```bash
-        rm -rf *
-        ```
-    3. Run the official Laravel installer:
-        ```bash
-        composer create-project laravel/laravel .
-        ```
-    4. Copy your custom files from your backup to the appropriate locations in the fresh Laravel project (for example, put migrations in `database/migrations`, controllers in `app/Http/Controllers`, models in `app/Models`, views in `resources/views`, and your `.env.example` in the root).
-    5. Run `composer install` if needed, then continue with the steps below.
-
-    > This way you keep all your work and benefit from a clean Laravel foundation.
-
-3. **Copy the example environment file and configure your database credentials:**
+2. **Copy the example environment file and configure your database credentials:**
     ```bash
     cp .env.example .env
     ```
@@ -46,17 +29,17 @@ Follow these steps to get the project up and running:
     DB_PASSWORD=your_password
     ```
 
-4. **Install PHP dependencies using Composer:**
+3. **Install PHP dependencies using Composer:**
     ```bash
     composer install
     ```
 
-5. **Generate the application key:**
+4. **Generate the application key:**
     ```bash
     php artisan key:generate
     ```
 
-6. **Run database migrations:**
+5. **Run database migrations:**
     ```bash
     php artisan migrate
     ```

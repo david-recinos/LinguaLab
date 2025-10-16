@@ -63,6 +63,9 @@ Homestead.json
 .DS_Store
 Thumbs.db
 
+# Windows security metadata files
+*:Zone.Identifier
+
 # NPM
 node_modules/
 npm-debug.log
