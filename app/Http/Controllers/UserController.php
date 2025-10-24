@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class UserController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * Display a listing of the users (admin only).
      */
@@ -32,21 +36,29 @@ class UserController extends Controller
     /**
      * Store a newly created user in storage (admin only).
      */
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
         $this->authorize('admin-only');
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'role' => 'required|in:admin,user'
-        ]);
 
+        $validated = $request->validated();
         $validated['password'] = Hash::make($validated['password']);
 
-        User::create($validated);
+        $user = User::create($validated);
+
+        // Assign role to the new user
+        if (isset($validated['role'])) {
+            $user->assignRole($validated['role']);
+        }
 
         return redirect()->route('users.index')->with('success', 'User created successfully.');
+    }
+
+    /**
+     * Display the specified user.
+     */
+    public function show(User $user)
+    {
+        return view('users.show', compact('user'));
     }
 
     /**
@@ -62,24 +74,24 @@ class UserController extends Controller
     /**
      * Update the specified user in storage (admin or self).
      */
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
         $this->authorize('update-user', $user);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:6|confirmed',
-        ]);
+        $validated = $request->validated();
 
-        if ($request->has('password') && $validated['password']) {
+        if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
+
         $user->name = $validated['name'];
         $user->email = $validated['email'];
+
+        // Update role if admin and role is provided
         if (Auth::user()->isAdmin() && $request->has('role')) {
-            $user->role = $request->get('role');
+            $user->syncRoles([$request->get('role')]);
         }
+
         $user->save();
 
         return redirect()->back()->with('success', 'User updated successfully.');
