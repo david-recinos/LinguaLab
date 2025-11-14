@@ -3,39 +3,41 @@
 use App\Models\User;
 
 test('login screen can be rendered', function () {
-    $response = $this->get('/login');
-
-    $response->assertStatus(200);
+    visit('/login')
+        ->assertSee('Log in')
+        ->assertSee('Email')
+        ->assertSee('Password');
 });
 
 test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
 
-    $response = $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
-
-    $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    visit('/login')
+        ->type('email', $user->email)
+        ->type('password', 'password')
+        ->click('Log in')
+        ->assertSee('Dashboard');
 });
 
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
-    $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-    ]);
-
-    $this->assertGuest();
+    visit('/login')
+        ->type('email', $user->email)
+        ->type('password', 'wrong-password')
+        ->click('Log in')
+        ->assertSee('These credentials do not match our records');
 });
 
 test('users can logout', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'name' => 'Admin',
+    ]);
 
-    $response = $this->actingAs($user)->post('/logout');
+    $this->actingAs($user);
 
-    $this->assertGuest();
-    $response->assertRedirect('/');
+    visit('/dashboard')
+        ->click('button:has-text("Admin")')
+        ->click('(//a[normalize-space()="Log Out"])[1]') // there are 2 buttons
+        ->assertSee('Log in');
 });

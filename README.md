@@ -7,6 +7,7 @@ An interactive language training platform designed for fun and progress.
 - PHP >= 8.2
 - Composer
 - MySQL
+- Node.js >= 18
 
 ## Setup
 
@@ -81,6 +82,44 @@ Follow these steps to get the project up and running:
     ```
 
    **Note:** You must run one of these commands for Tailwind CSS styles to work. Keep `npm run dev` running in a separate terminal during development.
+
+## Testing
+
+This project uses [Pest](https://pestphp.com/) for testing with browser testing support via Playwright.
+
+### Setup Browser Testing
+
+1. **Install PHP testing dependencies:**
+    ```bash
+    composer require pestphp/pest-plugin-browser --dev
+    ```
+
+2. **Install Playwright browsers:**
+    ```bash
+    npx playwright install chromium
+    ```
+
+   Or with system dependencies (requires sudo):
+    ```bash
+    sudo npx playwright install --with-deps chromium
+    ```
+
+### Running Tests
+
+Run all tests:
+```bash
+php artisan test
+```
+
+Run specific test file:
+```bash
+php artisan test --filter UserAccessTest
+```
+
+Run browser tests only:
+```bash
+php artisan test tests/Feature
+```
 
 ---
 

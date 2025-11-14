@@ -1,19 +1,21 @@
 <?php
 
 test('registration screen can be rendered', function () {
-    $response = $this->get('/register');
-
-    $response->assertStatus(200);
+    visit('/register')
+        ->assertSee('Register')
+        ->assertSee('Name')
+        ->assertSee('Email')
+        ->assertSee('Password');
 });
 
 test('new users can register', function () {
-    $response = $this->post('/register', [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ]);
+    visit('/register')
+        ->type('name', 'Test User')
+        ->type('email', 'test@example.com')
+        ->type('password', 'password')
+        ->type('password_confirmation', 'password')
+        ->click('Register')
+        ->assertSee('Dashboard');
 
-    $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    expect(\App\Models\User::where('email', 'test@example.com')->exists())->toBeTrue();
 });
