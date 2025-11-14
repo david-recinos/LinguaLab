@@ -68,6 +68,20 @@ Follow these steps to get the project up and running:
     ```
    The project will be accessible at `http://localhost:8000`.
 
+8. **Compile frontend assets:**
+
+   For development (with hot reload):
+    ```bash
+    npm run dev
+    ```
+
+   Or for production build:
+    ```bash
+    npm run build
+    ```
+
+   **Note:** You must run one of these commands for Tailwind CSS styles to work. Keep `npm run dev` running in a separate terminal during development.
+
 ---
 
 LinguaLab is built using [Laravel](https://laravel.com/), which is open-source software licensed under the [MIT license](https://opensource.org/licenses/MIT).
