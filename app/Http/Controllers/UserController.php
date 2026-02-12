@@ -58,6 +58,8 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
+        $this->authorize('admin-only');
+
         return view('users.show', compact('user'));
     }
 
@@ -88,8 +90,8 @@ class UserController extends Controller
         $user->email = $validated['email'];
 
         // Update role if admin and role is provided
-        if (Auth::user()->isAdmin() && $request->has('role')) {
-            $user->syncRoles([$request->get('role')]);
+        if (Auth::user()->isAdmin() && isset($validated['role'])) {
+            $user->syncRoles([$validated['role']]);
         }
 
         $user->save();
