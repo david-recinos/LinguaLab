@@ -15,6 +15,12 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('languages.index')" :active="request()->routeIs('languages.*')">
+                        {{ __('My Languages') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('translations.index')" :active="request()->routeIs('translations.*')">
+                        {{ __('Translations') }}
+                    </x-nav-link>
                     @if(Auth::user()->isAdmin())
                     <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                         {{ __('Users') }}
@@ -74,6 +80,12 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('languages.index')" :active="request()->routeIs('languages.*')">
+                {{ __('My Languages') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('translations.index')" :active="request()->routeIs('translations.*')">
+                {{ __('Translations') }}
             </x-responsive-nav-link>
             @if(Auth::user()->isAdmin())
             <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
