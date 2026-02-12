@@ -85,6 +85,16 @@ class TranslationController extends Controller
         $user = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
+        $ownsTarget = UserTargetLanguage::where('user_id', $user->id)
+            ->where('source_language_id', $activeSource->language_id)
+            ->where('target_language_id', $request->target_language_id)
+            ->exists();
+
+        if (!$ownsTarget) {
+            return redirect()->route('translations.create')
+                ->with('error', 'Invalid target language.');
+        }
+
         $data = $request->validated();
         $data['user_id'] = $user->id;
         $data['source_language_id'] = $activeSource->language_id;
@@ -126,6 +136,17 @@ class TranslationController extends Controller
     public function update(UpdateTranslationRequest $request, Translation $translation)
     {
         $this->authorize('manage-translation', $translation);
+
+        $user = Auth::user();
+        $ownsTarget = UserTargetLanguage::where('user_id', $user->id)
+            ->where('source_language_id', $translation->source_language_id)
+            ->where('target_language_id', $request->target_language_id)
+            ->exists();
+
+        if (!$ownsTarget) {
+            return redirect()->route('translations.edit', $translation)
+                ->with('error', 'Invalid target language.');
+        }
 
         $data = $request->validated();
 

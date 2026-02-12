@@ -144,6 +144,47 @@ test('user can create an expression translation', function () {
     expect($translation->notes)->toBe('Good luck idiom');
 });
 
+test('user cannot store translation with unconfigured target language', function () {
+    ['user' => $user, 'target' => $target] = createUserWithLanguages();
+    $french = Language::where('code', 'fr')->first();
+
+    $response = $this->actingAs($user)
+        ->post(route('translations.store'), [
+            'target_language_id' => $french->id,
+            'type' => 'text',
+            'source_text' => 'hello',
+            'target_text' => 'bonjour',
+        ]);
+
+    $response->assertRedirect(route('translations.create'));
+    expect(Translation::where('user_id', $user->id)->count())->toBe(0);
+});
+
+test('user cannot update translation with unconfigured target language', function () {
+    ['user' => $user, 'source' => $source, 'target' => $target] = createUserWithLanguages();
+    $french = Language::where('code', 'fr')->first();
+
+    $translation = Translation::create([
+        'user_id' => $user->id,
+        'source_language_id' => $source->id,
+        'target_language_id' => $target->id,
+        'type' => 'text',
+        'source_text' => 'hello',
+        'target_text' => 'hola',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->put(route('translations.update', $translation), [
+            'target_language_id' => $french->id,
+            'type' => 'text',
+            'source_text' => 'hello',
+            'target_text' => 'bonjour',
+        ]);
+
+    $response->assertRedirect(route('translations.edit', $translation));
+    expect($translation->fresh()->target_language_id)->toBe($target->id);
+});
+
 test('word translation requires word_type_id', function () {
     ['user' => $user, 'target' => $target] = createUserWithLanguages();
 

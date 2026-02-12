@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Language;
+use App\Models\Translation;
 use App\Models\UserSourceLanguage;
 use App\Models\UserTargetLanguage;
 use App\Http\Requests\StoreSourceLanguageRequest;
@@ -72,7 +73,7 @@ class LanguageSetupController extends Controller
                 ->delete();
 
             // Delete translations for this source language
-            Auth::user()->translations()
+            Translation::where('user_id', $userId)
                 ->where('source_language_id', $languageId)
                 ->delete();
 

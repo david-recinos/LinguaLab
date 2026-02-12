@@ -26,7 +26,7 @@ class WordTypeSeeder extends Seeder
         ];
 
         foreach ($types as $type) {
-            WordType::create(['name' => $type]);
+            WordType::firstOrCreate(['name' => $type]);
         }
     }
 }
