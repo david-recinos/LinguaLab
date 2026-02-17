@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSourceLanguageRequest;
+use App\Http\Requests\StoreTargetLanguageRequest;
 use App\Models\Language;
 use App\Models\Translation;
 use App\Models\UserSourceLanguage;
 use App\Models\UserTargetLanguage;
-use App\Http\Requests\StoreSourceLanguageRequest;
-use App\Http\Requests\StoreTargetLanguageRequest;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Log;
 
 class LanguageSetupController extends Controller
 {
@@ -48,10 +49,15 @@ class LanguageSetupController extends Controller
 
         $isFirst = $user->sourceLanguages()->count() === 0;
 
-        UserSourceLanguage::create([
+        $sourceLanguage = UserSourceLanguage::create([
             'user_id' => $user->id,
             'language_id' => $request->language_id,
             'is_active' => $isFirst,
+        ]);
+
+        Log::info('Source language added', [
+            'user_id' => $user->id,
+            'language_id' => $request->language_id,
         ]);
 
         return redirect()->route('languages.index')->with('success', 'Source language added.');
@@ -66,22 +72,25 @@ class LanguageSetupController extends Controller
         $userId = $sourceLanguage->user_id;
         $languageId = $sourceLanguage->language_id;
 
+        Log::info('Source language removed', [
+            'user_id' => $userId,
+            'source_language_id' => $languageId,
+            'was_active' => $wasActive,
+        ]);
+
         DB::transaction(function () use ($userId, $languageId, $sourceLanguage, $wasActive) {
-            // Delete associated target languages
             UserTargetLanguage::where('user_id', $userId)
                 ->where('source_language_id', $languageId)
                 ->delete();
 
-            // Delete translations for this source language
             Translation::where('user_id', $userId)
                 ->where('source_language_id', $languageId)
                 ->delete();
 
             $sourceLanguage->delete();
 
-            // If was active, activate another one
             if ($wasActive) {
-                $next = UserSourceLanguage::where('user_id', $userId)->first();
+                $next = UserSourceLanguage::where('user_id', $userId)->orderBy('id')->first();
                 if ($next) {
                     $next->update(['is_active' => true]);
                 }
@@ -96,11 +105,20 @@ class LanguageSetupController extends Controller
         $sourceLanguage = UserSourceLanguage::findOrFail($id);
         $this->authorize('manage-source-language', $sourceLanguage);
 
+        $oldActive = UserSourceLanguage::where('user_id', Auth::id())
+            ->where('is_active', true)
+            ->first();
+
         DB::transaction(function () use ($sourceLanguage) {
-            // Deactivate all, then activate selected
             UserSourceLanguage::where('user_id', Auth::id())->update(['is_active' => false]);
             $sourceLanguage->update(['is_active' => true]);
         });
+
+        Log::info('Source language switched', [
+            'user_id' => Auth::id(),
+            'old_active_id' => $oldActive?->language_id,
+            'new_active_id' => $sourceLanguage->language_id,
+        ]);
 
         return redirect()->route('languages.index')->with('success', 'Active source language switched.');
     }
@@ -109,12 +127,11 @@ class LanguageSetupController extends Controller
     {
         $user = Auth::user();
 
-        // Verify user owns this source language
         $ownsSource = UserSourceLanguage::where('user_id', $user->id)
             ->where('language_id', $request->source_language_id)
             ->exists();
 
-        if (!$ownsSource) {
+        if (! $ownsSource) {
             return redirect()->route('languages.index')->with('error', 'Invalid source language.');
         }
 
@@ -133,6 +150,12 @@ class LanguageSetupController extends Controller
             'target_language_id' => $request->target_language_id,
         ]);
 
+        Log::info('Target language added', [
+            'user_id' => $user->id,
+            'source_language_id' => $request->source_language_id,
+            'target_language_id' => $request->target_language_id,
+        ]);
+
         return redirect()->route('languages.index')->with('success', 'Target language added.');
     }
 
@@ -141,7 +164,24 @@ class LanguageSetupController extends Controller
         $targetLanguage = UserTargetLanguage::findOrFail($id);
         $this->authorize('manage-target-language', $targetLanguage);
 
-        $targetLanguage->delete();
+        $userId = $targetLanguage->user_id;
+        $sourceLanguageId = $targetLanguage->source_language_id;
+        $targetLanguageId = $targetLanguage->target_language_id;
+
+        Log::info('Target language removed', [
+            'user_id' => $userId,
+            'source_language_id' => $sourceLanguageId,
+            'target_language_id' => $targetLanguageId,
+        ]);
+
+        DB::transaction(function () use ($userId, $sourceLanguageId, $targetLanguageId, $targetLanguage) {
+            Translation::where('user_id', $userId)
+                ->where('source_language_id', $sourceLanguageId)
+                ->where('target_language_id', $targetLanguageId)
+                ->delete();
+
+            $targetLanguage->delete();
+        });
 
         return redirect()->route('languages.index')->with('success', 'Target language removed.');
     }

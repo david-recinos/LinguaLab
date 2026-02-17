@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LanguageSetupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TranslationController;
@@ -9,19 +10,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    $user = \Illuminate\Support\Facades\Auth::user();
-    $activeSource = $user->activeSourceLanguage();
-    $translationCount = $user->translations()->count();
-    $sourceLanguageCount = $user->sourceLanguages()->count();
-    $targetLanguageCount = $activeSource
-        ? \App\Models\UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $activeSource->language_id)
-            ->count()
-        : 0;
-
-    return view('dashboard', compact('activeSource', 'translationCount', 'sourceLanguageCount', 'targetLanguageCount'));
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

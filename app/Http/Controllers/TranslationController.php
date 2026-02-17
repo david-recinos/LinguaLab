@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTranslationRequest;
+use App\Http\Requests\UpdateTranslationRequest;
 use App\Models\Translation;
 use App\Models\UserTargetLanguage;
 use App\Models\WordType;
-use App\Http\Requests\StoreTranslationRequest;
-use App\Http\Requests\UpdateTranslationRequest;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Log;
 
 class TranslationController extends Controller
 {
@@ -20,7 +21,7 @@ class TranslationController extends Controller
         $user = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
-        if (!$activeSource) {
+        if (! $activeSource) {
             return redirect()->route('languages.index')
                 ->with('error', 'Please set up your source language first.');
         }
@@ -41,7 +42,7 @@ class TranslationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('source_text', 'like', "%{$search}%")
-                  ->orWhere('target_text', 'like', "%{$search}%");
+                    ->orWhere('target_text', 'like', "%{$search}%");
             });
         }
 
@@ -60,7 +61,7 @@ class TranslationController extends Controller
         $user = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
-        if (!$activeSource) {
+        if (! $activeSource) {
             return redirect()->route('languages.index')
                 ->with('error', 'Please set up your source language first.');
         }
@@ -85,12 +86,17 @@ class TranslationController extends Controller
         $user = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
+        if (! $activeSource) {
+            return redirect()->route('languages.index')
+                ->with('error', 'Please set up your source language first.');
+        }
+
         $ownsTarget = UserTargetLanguage::where('user_id', $user->id)
             ->where('source_language_id', $activeSource->language_id)
             ->where('target_language_id', $request->target_language_id)
             ->exists();
 
-        if (!$ownsTarget) {
+        if (! $ownsTarget) {
             return redirect()->route('translations.create')
                 ->with('error', 'Invalid target language.');
         }
@@ -103,7 +109,15 @@ class TranslationController extends Controller
             $data['word_type_id'] = null;
         }
 
-        Translation::create($data);
+        $translation = Translation::create($data);
+
+        Log::info('Translation created', [
+            'user_id' => $user->id,
+            'translation_id' => $translation->id,
+            'type' => $data['type'],
+            'source_language_id' => $data['source_language_id'],
+            'target_language_id' => $data['target_language_id'],
+        ]);
 
         return redirect()->route('translations.index')->with('success', 'Translation created.');
     }
@@ -143,7 +157,7 @@ class TranslationController extends Controller
             ->where('target_language_id', $request->target_language_id)
             ->exists();
 
-        if (!$ownsTarget) {
+        if (! $ownsTarget) {
             return redirect()->route('translations.edit', $translation)
                 ->with('error', 'Invalid target language.');
         }
@@ -154,7 +168,14 @@ class TranslationController extends Controller
             $data['word_type_id'] = null;
         }
 
+        $changes = array_intersect_key($data, $translation->getOriginal());
         $translation->update($data);
+
+        Log::info('Translation updated', [
+            'user_id' => $user->id,
+            'translation_id' => $translation->id,
+            'changes' => $changes,
+        ]);
 
         return redirect()->route('translations.index')->with('success', 'Translation updated.');
     }
@@ -162,6 +183,16 @@ class TranslationController extends Controller
     public function destroy(Translation $translation)
     {
         $this->authorize('manage-translation', $translation);
+
+        $user = Auth::user();
+        $sourceTextPreview = mb_substr($translation->source_text, 0, 50);
+
+        Log::info('Translation deleted', [
+            'user_id' => $user->id,
+            'translation_id' => $translation->id,
+            'source_text_preview' => $sourceTextPreview,
+        ]);
+
         $translation->delete();
 
         return redirect()->route('translations.index')->with('success', 'Translation deleted.');
