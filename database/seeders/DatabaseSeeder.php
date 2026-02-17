@@ -18,6 +18,10 @@ class DatabaseSeeder extends Seeder
         // Seed roles and permissions first
         $this->call(RolesAndPermissionsSeeder::class);
 
+        // Seed reference data
+        $this->call(LanguageSeeder::class);
+        $this->call(WordTypeSeeder::class);
+
         // Create admin user
         $admin = User::factory()->create([
             'name' => 'Admin',
