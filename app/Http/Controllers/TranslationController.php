@@ -168,13 +168,14 @@ class TranslationController extends Controller
             $data['word_type_id'] = null;
         }
 
-        $changes = array_intersect_key($data, $translation->getOriginal());
         $translation->update($data);
+
+        $changes = array_diff_key($translation->getChanges(), array_flip(['source_text', 'target_text', 'notes']));
 
         Log::info('Translation updated', [
             'user_id' => $user->id,
             'translation_id' => $translation->id,
-            'changes' => $changes,
+            'changed_fields' => array_keys($changes),
         ]);
 
         return redirect()->route('translations.index')->with('success', 'Translation updated.');
@@ -185,12 +186,11 @@ class TranslationController extends Controller
         $this->authorize('manage-translation', $translation);
 
         $user = Auth::user();
-        $sourceTextPreview = mb_substr($translation->source_text, 0, 50);
+        $translationId = $translation->id;
 
         Log::info('Translation deleted', [
             'user_id' => $user->id,
-            'translation_id' => $translation->id,
-            'source_text_preview' => $sourceTextPreview,
+            'translation_id' => $translationId,
         ]);
 
         $translation->delete();

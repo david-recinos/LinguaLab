@@ -39,21 +39,20 @@ class LanguageSetupController extends Controller
     {
         $user = Auth::user();
 
-        $exists = UserSourceLanguage::where('user_id', $user->id)
-            ->where('language_id', $request->language_id)
-            ->exists();
-
-        if ($exists) {
-            return redirect()->route('languages.index')->with('error', 'Source language already added.');
-        }
-
         $isFirst = $user->sourceLanguages()->count() === 0;
 
-        $sourceLanguage = UserSourceLanguage::create([
-            'user_id' => $user->id,
-            'language_id' => $request->language_id,
-            'is_active' => $isFirst,
-        ]);
+        try {
+            $sourceLanguage = UserSourceLanguage::create([
+                'user_id' => $user->id,
+                'language_id' => $request->language_id,
+                'is_active' => $isFirst,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23000') {
+                return redirect()->route('languages.index')->with('error', 'Source language already added.');
+            }
+            throw $e;
+        }
 
         Log::info('Source language added', [
             'user_id' => $user->id,
@@ -135,20 +134,18 @@ class LanguageSetupController extends Controller
             return redirect()->route('languages.index')->with('error', 'Invalid source language.');
         }
 
-        $exists = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $request->source_language_id)
-            ->where('target_language_id', $request->target_language_id)
-            ->exists();
-
-        if ($exists) {
-            return redirect()->route('languages.index')->with('error', 'Target language already added.');
+        try {
+            UserTargetLanguage::create([
+                'user_id' => $user->id,
+                'source_language_id' => $request->source_language_id,
+                'target_language_id' => $request->target_language_id,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23000') {
+                return redirect()->route('languages.index')->with('error', 'Target language already added.');
+            }
+            throw $e;
         }
-
-        UserTargetLanguage::create([
-            'user_id' => $user->id,
-            'source_language_id' => $request->source_language_id,
-            'target_language_id' => $request->target_language_id,
-        ]);
 
         Log::info('Target language added', [
             'user_id' => $user->id,
