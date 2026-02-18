@@ -24,3 +24,9 @@ Homestead.yaml
 Thumbs.db
 .aiassistant/
 .claude/
+
+# Local development utilities
+.worktree-copy
+telemetry-id
+worktree.sh
+worktrees/

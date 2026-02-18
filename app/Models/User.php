@@ -12,7 +12,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -50,8 +50,6 @@ class User extends Authenticatable
 
     /**
      * Check if the user is an admin.
-     *
-     * @return bool
      */
     public function isAdmin(): bool
     {
@@ -73,8 +71,28 @@ class User extends Authenticatable
         return $this->hasMany(Translation::class);
     }
 
+    public function practiceAttempts(): HasMany
+    {
+        return $this->hasMany(PracticeAttempt::class);
+    }
+
     public function activeSourceLanguage(): ?UserSourceLanguage
     {
         return $this->sourceLanguages()->where('is_active', true)->with('language')->first();
+    }
+
+    /**
+     * Get translations that are due for review.
+     * Returns a Collection of translations ready for practice.
+     */
+    public function getTranslationsDueForReview(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->translations()
+            ->where(function ($query) {
+                $query->whereNull('next_review_at')
+                    ->orWhere('next_review_at', '<=', now());
+            })
+            ->orderByRaw('next_review_at IS NULL, next_review_at ASC')
+            ->get();
     }
 }
