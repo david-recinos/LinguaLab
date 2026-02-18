@@ -104,6 +104,7 @@ class TranslationController extends Controller
         $data = $request->validated();
         $data['user_id'] = $user->id;
         $data['source_language_id'] = $activeSource->language_id;
+        $data['next_review_at'] = now(); // Set initial review date so word is immediately due
 
         if ($data['type'] !== 'word') {
             $data['word_type_id'] = null;
