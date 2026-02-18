@@ -127,15 +127,18 @@ class Translation extends Model
     public function calculateNextReview(int $quality): void
     {
         if ($quality >= 3) {
+            // Store the old ease factor before updating
+            $oldEaseFactor = $this->ease_factor;
+
+            // Calculate new interval using OLD ease factor (SM-2 spec: I(n) = I(n-1) × EF_old)
+            $this->interval_days = (int) ceil($this->interval_days * $oldEaseFactor);
+
             // Calculate new ease factor
             // EF' = EF + (0.1 - (5-q) * (0.08 + (5-q) * 0.02))
             $newEaseFactor = $this->ease_factor + (0.1 - (5 - $quality) * (0.08 + (5 - $quality) * 0.02));
 
             // Ease factor must be between 1.3 and 9.99 (column decimal(3,2) limit)
             $this->ease_factor = min(9.99, max(1.3, $newEaseFactor));
-
-            // Calculate new interval
-            $this->interval_days = (int) ceil($this->interval_days * $this->ease_factor);
         } else {
             // Reset on incorrect answer (quality < 3)
             $this->interval_days = 1;
