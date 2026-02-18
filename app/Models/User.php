@@ -82,16 +82,17 @@ class User extends Authenticatable
     }
 
     /**
-     * Get a query builder for translations that are due for review.
-     * Returns a query builder (not a collection) for flexible chaining.
+     * Get translations that are due for review.
+     * Returns a Collection of translations ready for practice.
      */
-    public function translationsDueForReview(): HasMany
+    public function getTranslationsDueForReview(): \Illuminate\Database\Eloquent\Collection
     {
         return $this->translations()
             ->where(function ($query) {
                 $query->whereNull('next_review_at')
                     ->orWhere('next_review_at', '<=', now());
             })
-            ->orderByRaw('next_review_at IS NULL, next_review_at ASC');
+            ->orderByRaw('next_review_at IS NULL, next_review_at ASC')
+            ->get();
     }
 }

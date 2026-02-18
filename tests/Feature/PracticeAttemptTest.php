@@ -229,17 +229,30 @@ test('record practice attempt updates last reviewed at', function () {
 
 // SM-2 Algorithm Tests
 
-test('correct answer increases interval based on ease factor', function () {
+test('correct answer increases interval based on old ease factor', function () {
     ['translation' => $translation] = createTranslationWithUser();
 
-    $initialEaseFactor = (float) $translation->ease_factor; // 2.50
-    $initialInterval = $translation->interval_days; // 1
+    // Set a larger interval to properly test SM-2 algorithm
+    // With interval=1, the bug was masked: ceil(1 * 2.50) = ceil(1 * 2.60) = 3
+    $translation->update(['interval_days' => 10]);
 
-    $translation->recordPracticeAttempt(true, PracticeDirection::SOURCE_TO_TARGET, PracticeInputMethod::TYPING);
+    $initialEaseFactor = (float) $translation->ease_factor; // 2.50
+
+    // Use quality=3 (hard but correct) which changes EF
+    // With q=3: EF' = 2.50 + (0.1 - 2 * (0.08 + 0.04)) = 2.50 - 0.14 = 2.36
+    $translation->recordPracticeAttempt(
+        correct: true,
+        direction: PracticeDirection::SOURCE_TO_TARGET,
+        inputMethod: PracticeInputMethod::TYPING,
+        quality: 3
+    );
     $translation->refresh();
 
-    // New interval should be ceil(1 * 2.50) = 3
-    expect($translation->interval_days)->toBe(3);
+    // SM-2 spec: interval uses OLD ease factor, then EF is updated
+    // Correct: ceil(10 * 2.50) = 25, then EF = 2.36
+    // Buggy: EF = 2.36 first, then ceil(10 * 2.36) = 24
+    expect($translation->interval_days)->toBe(25);
+    expect((float) $translation->ease_factor)->toBe(2.36);
     expect($translation->next_review_at->isToday() || $translation->next_review_at->isFuture())->toBeTrue();
 });
 
@@ -342,7 +355,7 @@ test('translation with interval 21 or more days is mastered', function () {
     expect($translation->getMasteryLevel())->toBe('mastered');
 });
 
-// User translationsDueForReview Tests
+// User getTranslationsDueForReview Tests
 
 test('user can get translations due for review', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
@@ -359,7 +372,7 @@ test('user can get translations due for review', function () {
         'next_review_at' => now()->addDays(10),
     ]);
 
-    $dueTranslations = $user->translationsDueForReview()->get();
+    $dueTranslations = $user->getTranslationsDueForReview();
 
     expect($dueTranslations)->toHaveCount(1);
     expect($dueTranslations->first()->id)->toBe($translation->id);
@@ -369,7 +382,7 @@ test('user can get translations with null next_review_at', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
     $translation->update(['next_review_at' => null]);
 
-    $dueTranslations = $user->translationsDueForReview()->get();
+    $dueTranslations = $user->getTranslationsDueForReview();
 
     expect($dueTranslations)->toHaveCount(1);
 });
