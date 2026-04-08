@@ -24,6 +24,8 @@ Homestead.yaml
 Thumbs.db
 .aiassistant/
 .claude/
+.gemini/
+.junie/
 
 # Local development utilities
 .worktree-copy
