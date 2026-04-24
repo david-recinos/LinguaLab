@@ -21,9 +21,15 @@
                     <x-nav-link :href="route('translations.index')" :active="request()->routeIs('translations.*')">
                         {{ __('Translations') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('review.index')" :active="request()->routeIs('review.*')">
+                        {{ __('Review') }}
+                    </x-nav-link>
                     @if(Auth::user()->isAdmin())
                     <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                         {{ __('Users') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('ai-audit-logs.index')" :active="request()->routeIs('ai-audit-logs.*')">
+                        {{ __('AI Logs') }}
                     </x-nav-link>
                     @endif
                 </div>
@@ -87,9 +93,15 @@
             <x-responsive-nav-link :href="route('translations.index')" :active="request()->routeIs('translations.*')">
                 {{ __('Translations') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('review.index')" :active="request()->routeIs('review.*')">
+                {{ __('Review') }}
+            </x-responsive-nav-link>
             @if(Auth::user()->isAdmin())
             <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                 {{ __('Users') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('ai-audit-logs.index')" :active="request()->routeIs('ai-audit-logs.*')">
+                {{ __('AI Logs') }}
             </x-responsive-nav-link>
             @endif
         </div>

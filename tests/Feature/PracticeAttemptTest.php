@@ -9,17 +9,18 @@ use App\Models\User;
 use App\Models\UserSourceLanguage;
 use App\Models\UserTargetLanguage;
 use App\Models\WordType;
+use App\Services\UserProgressService;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     Role::create(['name' => 'admin']);
     Role::create(['name' => 'user']);
 
-    Language::create(['code' => 'en', 'name' => 'English', 'native_name' => 'English']);
-    Language::create(['code' => 'es', 'name' => 'Spanish', 'native_name' => 'Español']);
+    Language::factory()->create(['code' => 'en', 'name' => 'English', 'native_name' => 'English']);
+    Language::factory()->create(['code' => 'es', 'name' => 'Spanish', 'native_name' => 'Español']);
 
-    WordType::create(['name' => 'Verb']);
-    WordType::create(['name' => 'Noun']);
+    WordType::factory()->create(['name' => 'Verb']);
+    WordType::factory()->create(['name' => 'Noun']);
 });
 
 /**
@@ -33,23 +34,22 @@ function createTranslationWithUser(): array
     $english = Language::where('code', 'en')->first();
     $spanish = Language::where('code', 'es')->first();
 
-    UserSourceLanguage::create([
+    UserSourceLanguage::factory()->create([
         'user_id' => $user->id,
         'language_id' => $english->id,
         'is_active' => true,
     ]);
 
-    UserTargetLanguage::create([
+    UserTargetLanguage::factory()->create([
         'user_id' => $user->id,
         'source_language_id' => $english->id,
         'target_language_id' => $spanish->id,
     ]);
 
-    $translation = Translation::create([
+    $translation = Translation::factory()->create([
         'user_id' => $user->id,
         'source_language_id' => $english->id,
         'target_language_id' => $spanish->id,
-        'type' => 'word',
         'word_type_id' => WordType::first()->id,
         'source_text' => 'hello',
         'target_text' => 'hola',
@@ -67,7 +67,7 @@ function createTranslationWithUser(): array
 test('practice attempt can be created', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    $attempt = PracticeAttempt::create([
+    $attempt = PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -87,7 +87,7 @@ test('practice attempt can be created', function () {
 test('practice attempt belongs to user', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    $attempt = PracticeAttempt::create([
+    $attempt = PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -101,7 +101,7 @@ test('practice attempt belongs to user', function () {
 test('practice attempt belongs to translation', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    $attempt = PracticeAttempt::create([
+    $attempt = PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -126,7 +126,7 @@ test('translation has default srs values', function () {
 test('translation has many practice attempts', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    PracticeAttempt::create([
+    PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -134,7 +134,7 @@ test('translation has many practice attempts', function () {
         'is_correct' => true,
     ]);
 
-    PracticeAttempt::create([
+    PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::TARGET_TO_SOURCE,
@@ -355,42 +355,52 @@ test('translation with interval 21 or more days is mastered', function () {
     expect($translation->getMasteryLevel())->toBe('mastered');
 });
 
-// User getTranslationsDueForReview Tests
+// UserProgressService::getTranslationsDueForReview Tests
 
-test('user can get translations due for review', function () {
+test('service returns only translations due for review', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    // Create another translation not due
-    $translation2 = Translation::create([
-        'user_id' => $user->id,
+    Translation::factory()->create([
+        'user_id'            => $user->id,
         'source_language_id' => $translation->source_language_id,
         'target_language_id' => $translation->target_language_id,
-        'type' => 'word',
-        'word_type_id' => WordType::first()->id,
-        'source_text' => 'goodbye',
-        'target_text' => 'adiós',
-        'next_review_at' => now()->addDays(10),
+        'word_type_id'       => WordType::first()->id,
+        'source_text'        => 'goodbye',
+        'target_text'        => 'adiós',
+        'next_review_at'     => now()->addDays(10),
     ]);
 
-    $dueTranslations = $user->getTranslationsDueForReview();
+    $service         = app(UserProgressService::class);
+    $dueTranslations = $service->getTranslationsDueForReview($user);
 
     expect($dueTranslations)->toHaveCount(1);
     expect($dueTranslations->first()->id)->toBe($translation->id);
 });
 
-test('user can get translations with null next_review_at', function () {
+test('service includes translations with null next_review_at as due', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
     $translation->update(['next_review_at' => null]);
 
-    $dueTranslations = $user->getTranslationsDueForReview();
+    $service         = app(UserProgressService::class);
+    $dueTranslations = $service->getTranslationsDueForReview($user);
 
     expect($dueTranslations)->toHaveCount(1);
+});
+
+test('service eager-loads relationships on due translations', function () {
+    ['user' => $user] = createTranslationWithUser();
+
+    $service         = app(UserProgressService::class);
+    $dueTranslations = $service->getTranslationsDueForReview($user);
+
+    expect($dueTranslations->first()->relationLoaded('sourceLanguage'))->toBeTrue();
+    expect($dueTranslations->first()->relationLoaded('targetLanguage'))->toBeTrue();
 });
 
 test('user has practice attempts relationship', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    PracticeAttempt::create([
+    PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -406,7 +416,7 @@ test('user has practice attempts relationship', function () {
 test('practice attempts are deleted when translation is deleted', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    $attempt = PracticeAttempt::create([
+    $attempt = PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,
@@ -424,7 +434,7 @@ test('practice attempts are deleted when translation is deleted', function () {
 test('practice attempts are deleted when user is deleted', function () {
     ['user' => $user, 'translation' => $translation] = createTranslationWithUser();
 
-    $attempt = PracticeAttempt::create([
+    $attempt = PracticeAttempt::factory()->create([
         'user_id' => $user->id,
         'translation_id' => $translation->id,
         'direction' => PracticeDirection::SOURCE_TO_TARGET,

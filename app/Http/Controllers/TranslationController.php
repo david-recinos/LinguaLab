@@ -1,13 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTranslationRequest;
 use App\Http\Requests\UpdateTranslationRequest;
+use App\Jobs\GenerateDistractorsJob;
 use App\Models\Translation;
-use App\Models\UserTargetLanguage;
 use App\Models\WordType;
+use App\Services\UserLanguageService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -16,9 +21,11 @@ class TranslationController extends Controller
 {
     use AuthorizesRequests;
 
-    public function index(Request $request)
+    public function __construct(private readonly UserLanguageService $languageService) {}
+
+    public function index(Request $request): View|RedirectResponse
     {
-        $user = Auth::user();
+        $user         = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
         if (! $activeSource) {
@@ -46,19 +53,15 @@ class TranslationController extends Controller
             });
         }
 
-        $translations = $query->latest()->paginate(15)->withQueryString();
-
-        $targetLanguages = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $activeSource->language_id)
-            ->with('targetLanguage')
-            ->get();
+        $translations    = $query->latest()->paginate(15)->withQueryString();
+        $targetLanguages = $this->languageService->getTargetLanguagesForActiveSource($user);
 
         return view('translations.index', compact('translations', 'activeSource', 'targetLanguages'));
     }
 
-    public function create()
+    public function create(): View|RedirectResponse
     {
-        $user = Auth::user();
+        $user         = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
         if (! $activeSource) {
@@ -66,10 +69,7 @@ class TranslationController extends Controller
                 ->with('error', 'Please set up your source language first.');
         }
 
-        $targetLanguages = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $activeSource->language_id)
-            ->with('targetLanguage')
-            ->get();
+        $targetLanguages = $this->languageService->getTargetLanguagesForActiveSource($user);
 
         if ($targetLanguages->isEmpty()) {
             return redirect()->route('languages.index')
@@ -81,9 +81,9 @@ class TranslationController extends Controller
         return view('translations.create', compact('activeSource', 'targetLanguages', 'wordTypes'));
     }
 
-    public function store(StoreTranslationRequest $request)
+    public function store(StoreTranslationRequest $request): RedirectResponse
     {
-        $user = Auth::user();
+        $user         = Auth::user();
         $activeSource = $user->activeSourceLanguage();
 
         if (! $activeSource) {
@@ -91,20 +91,15 @@ class TranslationController extends Controller
                 ->with('error', 'Please set up your source language first.');
         }
 
-        $ownsTarget = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $activeSource->language_id)
-            ->where('target_language_id', $request->target_language_id)
-            ->exists();
-
-        if (! $ownsTarget) {
+        if (! $this->languageService->ownsTargetLanguageForActiveSource($user, $request->target_language_id)) {
             return redirect()->route('translations.create')
                 ->with('error', 'Invalid target language.');
         }
 
-        $data = $request->validated();
-        $data['user_id'] = $user->id;
+        $data                      = $request->validated();
+        $data['user_id']           = $user->id;
         $data['source_language_id'] = $activeSource->language_id;
-        $data['next_review_at'] = now(); // Set initial review date so word is immediately due
+        $data['next_review_at']    = now();
 
         if ($data['type'] !== 'word') {
             $data['word_type_id'] = null;
@@ -112,10 +107,14 @@ class TranslationController extends Controller
 
         $translation = Translation::create($data);
 
+        if (config('ai.features.distractors.enabled', true)) {
+            GenerateDistractorsJob::dispatch(collect([$translation]));
+        }
+
         Log::info('Translation created', [
-            'user_id' => $user->id,
-            'translation_id' => $translation->id,
-            'type' => $data['type'],
+            'user_id'            => $user->id,
+            'translation_id'     => $translation->id,
+            'type'               => $data['type'],
             'source_language_id' => $data['source_language_id'],
             'target_language_id' => $data['target_language_id'],
         ]);
@@ -123,7 +122,7 @@ class TranslationController extends Controller
         return redirect()->route('translations.index')->with('success', 'Translation created.');
     }
 
-    public function show(Translation $translation)
+    public function show(Translation $translation): View
     {
         $this->authorize('manage-translation', $translation);
         $translation->load(['sourceLanguage', 'targetLanguage', 'wordType']);
@@ -131,34 +130,26 @@ class TranslationController extends Controller
         return view('translations.show', compact('translation'));
     }
 
-    public function edit(Translation $translation)
+    public function edit(Translation $translation): View
     {
         $this->authorize('manage-translation', $translation);
 
-        $user = Auth::user();
-        $activeSource = $user->activeSourceLanguage();
-
-        $targetLanguages = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $translation->source_language_id)
-            ->with('targetLanguage')
-            ->get();
-
+        $targetLanguages = $this->languageService->getTargetLanguagesForSource(
+            Auth::user(),
+            $translation->source_language_id
+        );
         $wordTypes = WordType::orderBy('name')->get();
 
-        return view('translations.edit', compact('translation', 'activeSource', 'targetLanguages', 'wordTypes'));
+        return view('translations.edit', compact('translation', 'targetLanguages', 'wordTypes'));
     }
 
-    public function update(UpdateTranslationRequest $request, Translation $translation)
+    public function update(UpdateTranslationRequest $request, Translation $translation): RedirectResponse
     {
         $this->authorize('manage-translation', $translation);
 
         $user = Auth::user();
-        $ownsTarget = UserTargetLanguage::where('user_id', $user->id)
-            ->where('source_language_id', $translation->source_language_id)
-            ->where('target_language_id', $request->target_language_id)
-            ->exists();
 
-        if (! $ownsTarget) {
+        if (! $this->languageService->ownsTargetLanguage($user, $translation->source_language_id, $request->target_language_id)) {
             return redirect()->route('translations.edit', $translation)
                 ->with('error', 'Invalid target language.');
         }
@@ -174,7 +165,7 @@ class TranslationController extends Controller
         $changes = array_diff_key($translation->getChanges(), array_flip(['source_text', 'target_text', 'notes']));
 
         Log::info('Translation updated', [
-            'user_id' => $user->id,
+            'user_id'        => $user->id,
             'translation_id' => $translation->id,
             'changed_fields' => array_keys($changes),
         ]);
@@ -182,16 +173,13 @@ class TranslationController extends Controller
         return redirect()->route('translations.index')->with('success', 'Translation updated.');
     }
 
-    public function destroy(Translation $translation)
+    public function destroy(Translation $translation): RedirectResponse
     {
         $this->authorize('manage-translation', $translation);
 
-        $user = Auth::user();
-        $translationId = $translation->id;
-
         Log::info('Translation deleted', [
-            'user_id' => $user->id,
-            'translation_id' => $translationId,
+            'user_id'        => Auth::id(),
+            'translation_id' => $translation->id,
         ]);
 
         $translation->delete();

@@ -1,24 +1,48 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
-use App\Models\UserTargetLanguage;
+use App\Services\UserLanguageService;
+use App\Services\UserProgressService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
-    public function index()
-    {
-        $user = Auth::user();
-        $activeSource = $user->activeSourceLanguage();
-        $translationCount = $user->translations()->count();
-        $sourceLanguageCount = $user->sourceLanguages()->count();
-        $targetLanguageCount = $activeSource
-            ? UserTargetLanguage::where('user_id', $user->id)
-                ->where('source_language_id', $activeSource->language_id)
-                ->count()
-            : 0;
+    public function __construct(
+        private readonly UserLanguageService $languageService,
+        private readonly UserProgressService $progressService,
+    ) {}
 
-        return view('dashboard', compact('activeSource', 'translationCount', 'sourceLanguageCount', 'targetLanguageCount'));
+    public function index(): View
+    {
+        $user         = Auth::user();
+        $activeSource = $user->activeSourceLanguage();
+
+        $translationCount    = $user->translations()->count();
+        $sourceLanguageCount = $user->sourceLanguages()->count();
+        $targetLanguageCount = $this->languageService->getTargetLanguageCountForActiveSource($user);
+
+        $dueForReviewCount        = 0;
+        $dueTranslations          = collect();
+        $totalTranslationsForSource = 0;
+
+        if ($activeSource) {
+            $dueTranslations            = $this->progressService->getTranslationsDueForReview($user)->take(10);
+            $dueForReviewCount          = $this->progressService->getDueForReviewCount($user);
+            $totalTranslationsForSource = $this->progressService->getTotalTranslationsForActiveSource($user);
+        }
+
+        return view('dashboard', compact(
+            'activeSource',
+            'translationCount',
+            'sourceLanguageCount',
+            'targetLanguageCount',
+            'dueForReviewCount',
+            'dueTranslations',
+            'totalTranslationsForSource'
+        ));
     }
 }

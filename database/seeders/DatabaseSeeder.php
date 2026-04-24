@@ -35,11 +35,14 @@ class DatabaseSeeder extends Seeder
         // Create a regular user for testing
         $user = User::factory()->create([
             'name' => 'Regular User',
-            'email' => 'user@lingualab.test',
+            'email' => 'regular@lingualab.com',
             'password' => bcrypt('userpass'),
         ]);
 
         // Assign user role
         $user->assignRole('user');
+
+        // Seed 100 sample translations (Spanish → English)
+        $this->call(TranslationSeeder::class);
     }
 }

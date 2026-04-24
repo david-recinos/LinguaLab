@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\AiAuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LanguageSetupController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\TranslationController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +32,26 @@ Route::middleware('auth')->group(function () {
 
     // Translation routes
     Route::resource('translations', TranslationController::class);
+
+    // Review routes
+    Route::prefix('review')->name('review.')->group(function () {
+        Route::get('/', [ReviewController::class, 'index'])->name('index');
+        Route::post('/start', [ReviewController::class, 'start'])->name('start');
+        Route::get('/question', [ReviewController::class, 'question'])->name('question');
+        Route::post('/submit', [ReviewController::class, 'submit'])->name('submit');
+        Route::post('/skip', [ReviewController::class, 'skip'])->name('skip');
+        Route::post('/next', [ReviewController::class, 'next'])->name('next');
+        Route::post('/end', [ReviewController::class, 'end'])->name('end');
+        Route::get('/complete', [ReviewController::class, 'complete'])->name('complete');
+        Route::post('/retry-distractors', [ReviewController::class, 'retryDistractors'])->name('retry-distractors');
+    });
+
+    // AI Audit Log routes (admin only)
+    Route::prefix('ai-audit-logs')->name('ai-audit-logs.')->group(function () {
+        Route::get('/', [AiAuditLogController::class, 'index'])->name('index');
+        Route::get('/status', [AiAuditLogController::class, 'status'])->name('status');
+        Route::get('/{aiAuditLog}', [AiAuditLogController::class, 'show'])->name('show');
+    });
 });
 
 require __DIR__.'/auth.php';
